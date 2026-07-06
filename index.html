@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CETEC — Asset Motor Monitor</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<!-- Firebase compat SDK (only used when CONFIG.DATA_SOURCE = "firebase") -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<!-- ============ TOP BAR ============ -->
+<header class="topbar">
+  <button class="hamburger" id="drawerBtn" title="Site navigator" aria-label="Toggle site navigator">☰</button>
+
+  <div class="brand">
+    <strong>Asset Motor Monitor</strong>
+    <span>Central Environmental Testing &amp; Consultancy (Pvt) Ltd</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><b id="kpiTotal">0</b><small>Pumps</small></div>
+    <div class="kpi k-ok"><b id="kpiOnline">0</b><small>Healthy</small></div>
+    <div class="kpi k-warn"><b id="kpiWarn">0</b><small>Warnings</small></div>
+    <div class="kpi k-alert"><b id="kpiAlert">0</b><small>Alerts</small></div>
+  </div>
+
+  <div class="tb-actions">
+    <a class="btn btn-telegram" id="telegramBtn" target="_blank" rel="noopener" title="Get critical fault alerts on Telegram">
+      ✈ Telegram Alerts
+    </a>
+    <button class="btn" onclick="openLogModal()">📋 Fault Log</button>
+    <a class="btn btn-ghost" href="admin.html" title="Administrator sign-in">🔐 Admin</a>
+  </div>
+</header>
+
+<!-- ============ LAYOUT ============ -->
+<div class="layout">
+
+  <!-- Site navigator drawer -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <h3>Site Navigator</h3>
+      <p>Select a site to view its pump cluster</p>
+    </div>
+    <nav class="site-tree" id="siteTree" aria-label="Sites and pumps"></nav>
+    <div class="drawer-foot">
+      <div class="theme-row">
+        <span>Night Ops theme</span>
+        <label class="switch">
+          <input type="checkbox" id="themeToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <button class="btn btn-block" onclick="showAllSites()">🗺 View All Sites</button>
+    </div>
+  </aside>
+
+  <!-- Map -->
+  <main class="map-area">
+    <div id="mainMap"></div>
+    <div class="map-badge"><span class="led ok"></span><span id="mapBadgeText">All sites</span></div>
+    <div class="demo-banner" id="demoBanner" hidden></div>
+  </main>
+
+  <!-- Telemetry rail -->
+  <aside class="rail">
+    <div class="card">
+      <h4 id="chartTitle">Live Vibration — select a pump</h4>
+      <canvas id="liveChart" height="170"></canvas>
+      <div class="detail-grid" id="detailGrid" hidden>
+        <div class="metric"><small>Vibration</small><b id="dVib">--</b></div>
+        <div class="metric"><small>Frequency</small><b id="dFreq">--</b></div>
+        <div class="metric"><small>Condition</small><b id="dFault" style="font-size:13px">--</b></div>
+        <div class="metric"><small>Last packet</small><b id="dTs" style="font-size:13px">--</b></div>
+      </div>
+    </div>
+    <div id="pumpCards"></div>
+  </aside>
+</div>
+
+<!-- ============ FAULT LOG MODAL ============ -->
+<div id="logModal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <h3>System Fault History</h3>
+    <div style="overflow-y:auto; max-height:420px; border:1px solid var(--border); border-radius:8px;">
+      <table>
+        <thead><tr><th>Timestamp</th><th>Site</th><th>Pump</th><th>Fault</th><th>Severity</th></tr></thead>
+        <tbody id="logTableBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:18px;">
+      <button class="btn btn-primary" onclick="downloadLog()">💾 Export CSV</button>
+      <button class="btn" onclick="document.getElementById('logModal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/data-service.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

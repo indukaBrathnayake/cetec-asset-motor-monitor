@@ -1,0 +1,6 @@
+# Secrets — never commit real credentials
+js/config.local.js
+firmware/**/secrets.h
+.env
+node_modules/
+.DS_Store
