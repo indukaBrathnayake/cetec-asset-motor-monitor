@@ -1,0 +1,44 @@
+# ============================================================
+# CETEC — 24/7 Telemetry Simulator (GitHub Actions)
+# ============================================================
+# Runs the data generator on GitHub's servers every 30 minutes;
+# each run streams for ~25 minutes, so telemetry flows almost
+# continuously — even when your own PC is switched off.
+#
+# SETUP (one time):
+#   Repo → Settings → Secrets and variables → Actions → New secret:
+#     FIREBASE_HOST = your-project-default-rtdb.firebaseio.com
+#     FIREBASE_AUTH = <database secret / token>
+#
+# Start/stop anytime: Actions tab → "Telemetry Simulator" →
+# "Run workflow" (manual) or disable the workflow to stop it.
+#
+# NOTE: scheduled runs need the repo to have recent activity;
+# GitHub pauses schedules on repos inactive for 60 days.
+# ============================================================
+
+name: Telemetry Simulator
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes
+  workflow_dispatch:          # manual start button
+
+concurrency:
+  group: simulator
+  cancel-in-progress: true    # never two generators at once
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Stream synthetic telemetry (~25 min)
+        env:
+          FIREBASE_HOST: ${{ secrets.FIREBASE_HOST }}
+          FIREBASE_AUTH: ${{ secrets.FIREBASE_AUTH }}
+        run: node tools/simulator/simulator.js 25
