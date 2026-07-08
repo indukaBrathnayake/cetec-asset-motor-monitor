@@ -17,44 +17,65 @@ let siteLatLng = null, pumpLatLng = null;
 let editingSiteId = null, editingPumpId = null;
 
 /* ---------------- AUTH ---------------- */
+// Firebase counts as "not configured" while placeholder values remain.
+const firebaseConfigured =
+  CONFIG.FIREBASE && CONFIG.FIREBASE.apiKey && CONFIG.FIREBASE.apiKey !== "YOUR_API_KEY";
+// Fall back to demo login if Firebase mode is selected but not configured,
+// or if the Firebase SDK failed to load — the admin panel is never bricked.
+const useDemoLogin = isDemo || !firebaseConfigured || !window.firebase;
+
 window.addEventListener("DOMContentLoaded", () => {
-  if (isDemo) {
+  // 1) Attach the submit handler FIRST so a backend error can never
+  //    leave the Sign In button dead (previous bug: an exception during
+  //    Firebase init stopped the script before the handler was attached,
+  //    so submitting just reloaded the page).
+  $("loginForm").addEventListener("submit", onLoginSubmit);
+
+  // 2) Then initialise the backend, safely.
+  if (useDemoLogin) {
     $("demoHint").innerHTML =
-      "DEMO MODE — test credentials: <code>admin / admin123</code> " +
+      (isDemo ? "DEMO MODE" : "\u26a0 Firebase not configured \u2014 using demo login") +
+      " \u2014 test credentials: <code>admin / admin123</code> " +
       "or <code>master / master123</code>. Replace with Firebase " +
       "Authentication before deployment (see README).";
   } else {
-    DataService.init(); // initialize Firebase app for auth
+    try {
+      DataService.init(); // initialise Firebase app for auth
+    } catch (err) {
+      console.error("Firebase init failed:", err);
+      $("loginErr").textContent =
+        "Cloud connection failed \u2014 check CONFIG.FIREBASE in js/config.js.";
+    }
+  }
+});
+
+async function onLoginSubmit(e) {
+  e.preventDefault();
+  const user = $("loginUser").value.trim().toLowerCase();
+  const pass = $("loginPass").value;
+  $("loginErr").textContent = "";
+
+  if (useDemoLogin) {
+    const u = CONFIG.DEMO_USERS[user];
+    if (u && u.password === pass) enterConsole(u.role);
+    else $("loginErr").textContent = "Invalid username or password.";
+    return;
   }
 
-  $("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const user = $("loginUser").value.trim();
-    const pass = $("loginPass").value;
-    $("loginErr").textContent = "";
-
-    if (isDemo) {
-      const u = CONFIG.DEMO_USERS[user];
-      if (u && u.password === pass) enterConsole(u.role);
-      else $("loginErr").textContent = "Invalid credentials.";
-      return;
+  // Firebase Auth (email/password) + role lookup at /roles/{uid}
+  try {
+    const cred = await firebase.auth().signInWithEmailAndPassword(user, pass);
+    const snap = await firebase.database().ref("roles/" + cred.user.uid).get();
+    const r = snap.val();
+    if (r === "admin" || r === "master") enterConsole(r);
+    else {
+      $("loginErr").textContent = "This account has no administrator role.";
+      firebase.auth().signOut();
     }
-
-    // Firebase Auth (email/password) + role lookup at /roles/{uid}
-    try {
-      const cred = await firebase.auth().signInWithEmailAndPassword(user, pass);
-      const snap = await firebase.database().ref("roles/" + cred.user.uid).get();
-      const r = snap.val();
-      if (r === "admin" || r === "master") enterConsole(r);
-      else {
-        $("loginErr").textContent = "This account has no administrator role.";
-        firebase.auth().signOut();
-      }
-    } catch (err) {
-      $("loginErr").textContent = "Sign-in failed: " + (err.message || err);
-    }
-  });
-});
+  } catch (err) {
+    $("loginErr").textContent = "Sign-in failed: " + (err.message || err);
+  }
+}
 
 function enterConsole(r) {
   role = r;
@@ -64,13 +85,17 @@ function enterConsole(r) {
   $("rolePill").classList.toggle("master", r === "master");
   $("masterZone").hidden = r !== "master";
 
-  if (isDemo) DataService.init();
-  DataService.onSites((s) => { sites = s || {}; renderSites(); fillSiteSelect(); renderPumps(); });
-  DataService.onPumps((p) => { pumps = p || {}; renderPumps(); });
+  // If Firebase isn't configured yet, manage demo data instead so the
+  // console remains usable end-to-end.
+  const svc = useDemoLogin ? DemoService : DataService;
+  if (useDemoLogin) svc.init();
+  svc.onSites((s) => { sites = s || {}; renderSites(); fillSiteSelect(); renderPumps(); });
+  svc.onPumps((p) => { pumps = p || {}; renderPumps(); });
+  window.__svc = svc; // used by CRUD handlers below
 }
 
 function signOut() {
-  if (!isDemo && window.firebase) firebase.auth().signOut();
+  if (!useDemoLogin && window.firebase) firebase.auth().signOut();
   location.reload();
 }
 
@@ -155,14 +180,14 @@ async function saveSite() {
   if (!name) return alert("Enter a site name.");
   if (!siteLatLng) return alert("Click the map to set the site location.");
   const data = { name, lat: siteLatLng.lat, lng: siteLatLng.lng };
-  if (editingSiteId) await DataService.updateSite(editingSiteId, data);
-  else await DataService.addSite(data);
+  if (editingSiteId) await window.__svc.updateSite(editingSiteId, data);
+  else await window.__svc.addSite(data);
   closeModal("siteModal");
 }
 
 async function deleteSite(id) {
   if (!confirm(`Delete "${sites[id].name}" and ALL its pumps?`)) return;
-  await DataService.deleteSite(id);
+  await window.__svc.deleteSite(id);
 }
 
 /* ---------------- PUMP FORM ---------------- */
@@ -206,14 +231,14 @@ async function savePump() {
   if (!name) return alert("Enter a pump name.");
   if (!pumpLatLng) return alert("Click the map to set the pump position.");
   const data = { name, siteId, lat: pumpLatLng.lat, lng: pumpLatLng.lng };
-  if (editingPumpId) await DataService.updatePump(editingPumpId, data);
-  else await DataService.addPump(data);
+  if (editingPumpId) await window.__svc.updatePump(editingPumpId, data);
+  else await window.__svc.addPump(data);
   closeModal("pumpModal");
 }
 
 async function deletePump(id) {
   if (!confirm(`Delete pump "${pumps[id].name}"?`)) return;
-  await DataService.deletePump(id);
+  await window.__svc.deletePump(id);
 }
 
 /* ---------------- MASTER CONTROLS ---------------- */
@@ -226,8 +251,8 @@ async function masterResetData() {
   if (!requireMaster()) return;
   if (!confirm("⚠ This permanently removes ALL sites and pumps. Continue?")) return;
   if (prompt('Type "RESET" to confirm:') !== "RESET") return;
-  for (const id of Object.keys(pumps)) await DataService.deletePump(id);
-  for (const id of Object.keys(sites)) await DataService.deleteSite(id);
+  for (const id of Object.keys(pumps)) await window.__svc.deletePump(id);
+  for (const id of Object.keys(sites)) await window.__svc.deleteSite(id);
   alert("System configuration cleared.");
 }
 
