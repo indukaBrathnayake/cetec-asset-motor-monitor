@@ -35,15 +35,19 @@
   </div>
 
   <div class="tb-actions">
+    <span class="cloud-pill" id="cloudPill" title="Dashboard ↔ cloud link status">
+      <span class="led" id="cloudLed"></span><span class="btn-label" id="cloudText">Cloud…</span>
+    </span>
     <a class="btn btn-telegram" id="telegramBtn" target="_blank" rel="noopener" title="Get critical fault alerts on Telegram">
-      ✈ Telegram Alerts
+      ✈<span class="btn-label"> Telegram Alerts</span>
     </a>
-    <button class="btn" onclick="openLogModal()">📋 Fault Log</button>
-    <a class="btn btn-ghost" href="admin.html" title="Administrator sign-in">🔐 Admin</a>
+    <button class="btn" onclick="openLogModal()" title="Fault history">📋<span class="btn-label"> Fault Log</span></button>
+    <!-- Admin console is unlisted: append /admin/ to the site URL -->
   </div>
 </header>
 
 <!-- ============ LAYOUT ============ -->
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
 <div class="layout">
 
   <!-- Site navigator drawer -->
