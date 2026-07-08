@@ -15,7 +15,7 @@ live pump health per site, with fault logging and Telegram alerting.
 |---|---|
 | **Monitoring dashboard** (`index.html`) | Read-only for site users. Live map, site navigator drawer, per-pump vibration chart, KPI ribbon (pumps / healthy / warnings / alerts), fault history + CSV export. |
 | **Site navigator** | Left slide-out drawer listing every site and its pump cluster with live status LEDs. Selecting a site flies the map to it and filters the pump cards. |
-| **Admin console** (`admin.html`) | Login-gated. `admin` role: add/edit/delete sites and pumps (map-pick coordinates). `master` role: everything + critical operations (full reset, log purge, config export). |
+| **Admin console** (`admin/ (append /admin/ to the site URL)`) | Login-gated. `admin` role: add/edit/delete sites and pumps (map-pick coordinates). `master` role: everything + critical operations (full reset, log purge, config export). |
 | **Cloud data** | ESP32 → WiFi router → Firebase Realtime Database → dashboard (live listeners). No Bluetooth pairing required. |
 | **Telegram** | "Telegram Alerts" button in the top bar links users to the alert bot: https://t.me/AssetMotorMonitor_bot |
 | **Demo mode** | Built-in telemetry simulator so the whole site can be tested **before the frequency-capture hardware is finished**. |
@@ -27,7 +27,7 @@ live pump health per site, with fault logging and Telegram alerting.
 ```
 pump-monitor/
 ├── index.html               # User monitoring dashboard (read-only)
-├── admin.html               # Admin / master console (login required)
+├── admin/ (append /admin/ to the site URL)               # Admin / master console (login required)
 ├── css/style.css            # Design system (dark "Night Ops" + light theme)
 ├── js/
 │   ├── config.js            # ← all settings live here
