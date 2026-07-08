@@ -1,6 +1,6 @@
 /* ============================================================
    CETEC Asset Motor Monitor — Dashboard (read-only)
-   Users monitor sites & pumps here. All editing lives in admin.html.
+   Users monitor sites & pumps here. All editing lives at /admin/ (unlisted).
    ============================================================ */
 
 "use strict";
@@ -27,10 +27,10 @@ window.addEventListener("DOMContentLoaded", () => {
   $("themeToggle").addEventListener("change", (e) =>
     applyTheme(e.target.checked ? "dark" : "light"));
 
-  // Drawer
-  $("drawerBtn").addEventListener("click", () =>
-    $("drawer").classList.toggle("closed"));
-  if (window.innerWidth < 860) $("drawer").classList.add("closed");
+  // Drawer (overlay on mobile, docked on desktop)
+  $("drawerBtn").addEventListener("click", toggleDrawer);
+  $("drawerBackdrop").addEventListener("click", closeDrawer);
+  if (isMobile()) $("drawer").classList.add("closed");
 
   initMap();
   initChart();
@@ -53,12 +53,46 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   DataService.onTelemetry(handleTelemetry);
 
+  // Cloud link indicator (dashboard ↔ Firebase). In a power cut at the
+  // sites this stays GREEN — sensor loss shows per-pump as OFFLINE.
+  if (DataService.onConnection) {
+    DataService.onConnection((up) => {
+      $("cloudPill").className = "cloud-pill " + (up ? "on" : "off");
+      $("cloudLed").className = "led " + (up ? "ok" : "alert");
+      $("cloudText").textContent = DataService.label
+        ? "Demo" : (up ? "Cloud OK" : "Cloud lost");
+    });
+  }
+
+  // Leaflet needs a size refresh whenever the layout changes on
+  // mobile (rotation, keyboard, drawer) or tiles render grey/misaligned.
+  let rsT;
+  window.addEventListener("resize", () => {
+    clearTimeout(rsT);
+    rsT = setTimeout(() => mainMap.invalidateSize(), 200);
+  });
+  window.addEventListener("orientationchange", () =>
+    setTimeout(() => mainMap.invalidateSize(), 300));
+  setTimeout(() => mainMap.invalidateSize(), 400); // after first paint
+
   setInterval(checkOffline, 3000);
 });
 
 const pickRuntime = (old) => old
   ? { sev: old.sev, fault: old.fault, v: old.v, freq: old.freq, ts: old.ts, history: old.history }
   : {};
+
+const isMobile = () => window.innerWidth < 860;
+
+function toggleDrawer() {
+  const closed = $("drawer").classList.toggle("closed");
+  document.body.classList.toggle("drawer-open", !closed && isMobile());
+  setTimeout(() => mainMap && mainMap.invalidateSize(), 280); // after CSS transition
+}
+function closeDrawer() {
+  $("drawer").classList.add("closed");
+  document.body.classList.remove("drawer-open");
+}
 
 function applyTheme(t) {
   document.body.setAttribute("data-theme", t === "dark" ? "" : "light");
@@ -186,6 +220,7 @@ function selectPump(pid) {
   if (!p) return;
   if (p.siteId !== selectedSite) { selectedSite = p.siteId; }
   renderTree(); renderCards();
+  if (isMobile()) closeDrawer(); // let the user see the map they just navigated to
   mainMap.flyTo([p.lat, p.lng], 18, { duration: 1 });
   markers[pid]?.openPopup();
   $("chartTitle").textContent = `Live Vibration — ${p.name}`;
@@ -193,6 +228,10 @@ function selectPump(pid) {
   updateDetail(p);
   liveChart.data.datasets[0].data = p.history || Array(CONFIG.CHART_POINTS).fill(0);
   liveChart.update("none");
+  // On phones the chart sits below the map — bring it into view so the
+  // selection has an obvious result.
+  if (isMobile()) setTimeout(() =>
+    $("chartTitle").scrollIntoView({ behavior: "smooth", block: "start" }), 350);
 }
 
 /* ---------------- PUMP CARDS (right rail) ---------------- */
@@ -310,9 +349,12 @@ function updateDetail(p) {
 function checkOffline() {
   const now = Date.now();
   let changed = false;
-  Object.values(pumps).forEach((p) => {
+  Object.entries(pumps).forEach(([pid, p]) => {
     if (p.ts && now - p.ts > CONFIG.OFFLINE_TIMEOUT_MS && p.sev !== "OFFLINE") {
-      p.sev = "OFFLINE"; changed = true;
+      p.sev = "OFFLINE";
+      p.fault = "No data since " + new Date(p.ts).toLocaleTimeString();
+      logFault(pid, "Sensor offline — no data received (power cut / WiFi loss?)", "OFFLINE");
+      changed = true;
     }
   });
   if (changed) { renderTree(); renderCards(); refreshMarkers(); updateKpis(); }
