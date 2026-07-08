@@ -38,9 +38,10 @@ const DemoService = (() => {
   let sites = {}, pumps = {}, profiles = {};
   let siteCb = null, pumpCb = null, telemCb = null, timer = null;
 
+  const clone = (o) => JSON.parse(JSON.stringify(o)); // works on all browsers
   const load = (k, d) => {
-    try { return JSON.parse(localStorage.getItem(k)) || structuredClone(d); }
-    catch { return structuredClone(d); }
+    try { return JSON.parse(localStorage.getItem(k)) || clone(d); }
+    catch { return clone(d); }
   };
   const save = () => {
     localStorage.setItem(LS_SITES, JSON.stringify(sites));
@@ -95,6 +96,7 @@ const DemoService = (() => {
     onSites(cb) { siteCb = cb; if (Object.keys(sites).length) cb(sites); },
     onPumps(cb) { pumpCb = cb; if (Object.keys(pumps).length) cb(pumps); },
     onTelemetry(cb) { telemCb = cb; },
+    onConnection(cb) { cb(true); }, // simulator is always "connected"
 
     // ----- admin CRUD -----
     async addSite(d)        { sites[uid("s")] = d; save(); siteCb(sites); },
@@ -135,14 +137,23 @@ const FirebaseService = (() => {
     onSites(cb) { db.ref("sites").on("value", s => cb(s.val() || {})); },
     onPumps(cb) { db.ref("pumps").on("value", s => cb(s.val() || {})); },
     onTelemetry(cb) {
-      db.ref("telemetry").on("child_changed", snap => {
+      // If the ESP32's clock isn't NTP-synced, ts may be 0/missing —
+      // stamp arrival time so offline detection still works correctly.
+      const emit = (snap) => {
         const t = snap.child("latest").val();
-        if (t) cb({ pumpId: snap.key, ...t });
-      });
-      db.ref("telemetry").on("child_added", snap => {
-        const t = snap.child("latest").val();
-        if (t) cb({ pumpId: snap.key, ...t });
-      });
+        if (!t) return;
+        if (!t.ts || t.ts < 946684800000) t.ts = Date.now();
+        cb({ pumpId: snap.key, ...t });
+      };
+      db.ref("telemetry").on("child_changed", emit);
+      db.ref("telemetry").on("child_added", emit);
+    },
+    // Live browser ↔ Firebase connection state (true/false).
+    // NOTE: this is the DASHBOARD's link to the cloud — it stays true
+    // even if every sensor loses power. Sensor health is judged per
+    // pump via packet age (OFFLINE_TIMEOUT_MS).
+    onConnection(cb) {
+      db.ref(".info/connected").on("value", s => cb(!!s.val()));
     },
 
     // ----- admin CRUD (rules must restrict writes to admin/master) -----
