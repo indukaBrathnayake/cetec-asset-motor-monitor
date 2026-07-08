@@ -38,6 +38,10 @@
 
 * { box-sizing: border-box; }
 
+/* CRITICAL: author display rules (e.g. .login-wrap{display:grid}) override
+   the browser's [hidden] rule — force it so JS show/hide always works. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -569,21 +573,122 @@ input.f-input:focus, select.f-input:focus { border-color: var(--accent); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* ---------- DRAWER BACKDROP (mobile overlay) ---------- */
+.drawer-backdrop {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(4, 8, 14, 0.55);
+  z-index: 1050;
+}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 1080px) {
-  .kpis { display: none; }
   .rail { width: 320px; }
+  .kpi { min-width: 72px; padding: 5px 8px; }
+  .kpi b { font-size: 16px; }
 }
+
 @media (max-width: 860px) {
-  .layout { flex-direction: column; overflow-y: auto; }
-  body { overflow: auto; }
+  html, body { overflow: auto; height: auto; }
+
+  /* --- Topbar: wraps into rows, KPIs become a full-width strip --- */
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    row-gap: 10px;
+    position: sticky;
+    top: 0;
+  }
+  .brand { flex: 1; min-width: 0; }
+  .brand strong { font-size: 13.5px; white-space: normal; line-height: 1.2; }
+  .brand span { font-size: 9px; letter-spacing: 1px; white-space: normal; }
+
+  .kpis {
+    order: 5;
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    margin: 0;
+  }
+  .kpi { flex: 1; min-width: 0; padding: 6px 4px; }
+  .kpi b { font-size: 16px; }
+  .kpi small { font-size: 8.5px; letter-spacing: 0.6px; }
+
+  /* Icon-only buttons on phones */
+  .tb-actions { gap: 8px; }
+  .btn { padding: 10px 12px; }
+  .btn .btn-label { display: none; }
+
+  /* --- Layout stacks vertically --- */
+  .layout { flex-direction: column; height: auto; }
+
+  /* --- Drawer becomes a slide-in overlay --- */
   .drawer {
     position: fixed;
-    top: 62px; bottom: 0; left: 0;
-    box-shadow: var(--shadow);
+    top: 0; bottom: 0; left: 0;
+    width: min(310px, 85vw);
+    z-index: 1150;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.45);
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+    margin-left: 0;
   }
-  .map-area { height: 46vh; flex: none; }
-  .rail { width: 100%; border-left: none; border-top: 1px solid var(--border); }
-  .admin-main { grid-template-columns: 1fr; }
-  .brand strong { font-size: 13px; }
+  .drawer.closed {
+    margin-left: 0;
+    transform: translateX(-110%);
+  }
+  body.drawer-open .drawer-backdrop { display: block; }
+  body.drawer-open { overflow: hidden; }
+
+  /* --- Map & rail --- */
+  .map-area { height: 44vh; min-height: 300px; flex: none; }
+  .map-badge { max-width: 72%; font-size: 12px; }
+  .rail {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+  }
+
+  /* --- Bigger touch targets --- */
+  .site-row { padding: 13px 14px; font-size: 14px; }
+  .pump-row { padding: 12px 10px; font-size: 13.5px; }
+  .pump-card { padding: 15px 16px; }
+  .mini-btn { padding: 9px 12px; font-size: 12.5px; }
+
+  /* --- Modals & admin --- */
+  .modal { padding: 10px; align-items: flex-start; }
+  .modal-content { padding: 18px; margin-top: 4vh; max-height: 90vh; }
+  .admin-main { grid-template-columns: 1fr; height: auto; padding: 14px; }
+  #pickerMap, #sitePickerMap, #pumpPickerMap { height: 200px !important; }
+}
+
+@media (max-width: 400px) {
+  .brand span { display: none; }
+  .kpi b { font-size: 14px; }
+}
+
+/* ---------- CLOUD STATUS PILL ---------- */
+.cloud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--raised);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+.cloud-pill.on  { border-color: var(--ok); color: var(--ok); }
+.cloud-pill.off { border-color: var(--alert); color: var(--alert); }
+
+/* Touch behaviour: no 300ms delay / double-tap zoom on controls */
+.btn, .hamburger, .site-row, .pump-row, .pump-card, .mini-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
