@@ -25,7 +25,7 @@ Setup: `js/config.js` → `DATA_SOURCE: "demo"` (default), or append
 - [ ] "View All Sites" fits all pumps on the map.
 - [ ] Resize to phone width: drawer becomes an overlay, layout stacks vertically.
 
-### Admin (`admin.html`)
+### Admin (`admin/ (append /admin/ to the site URL)`)
 - [ ] Wrong password → "Invalid credentials."
 - [ ] `admin / admin123` signs in; Master Controls section is **hidden**.
 - [ ] `master / master123` signs in; Master Controls section is **visible**, role pill shows MASTER.
